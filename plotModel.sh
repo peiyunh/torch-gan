@@ -1,6 +1,10 @@
 # TODO FIXIT
 
-# 
+#
+LIBDIR=fb-caffe-exts/torch2caffe
+cd $LIBDIR
+
+
 MODELDIR=logs512_mpii64
 INPUTSIZE=[1,64,64]
 # convert to Caffe
