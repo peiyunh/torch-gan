@@ -1,0 +1,9 @@
+* Balancing the GAN game:  
+** L2 penalty on D's weights 
+   I applied the strategy of controlling D to be better than G, while
+   not much better than G. This is done by dynamically controlling the
+   L2 weight decay (referred to as /coefL2/ in code). 
+
+** Early stage 
+   I saw in early stage, D is always being updated; G is updated much
+   less than D. 

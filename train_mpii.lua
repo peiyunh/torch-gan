@@ -17,13 +17,13 @@ require 'pl'
 require 'paths'
 ok, disp = pcall(require, 'display')
 if not ok then print('display not found. unable to plot') end
-adversarial = require 'lfw_adverserial'
+adversarial = require 'mpii_adverserial'
 
 
 ----------------------------------------------------------------------
 -- parse command-line options
 opt = lapp[[
-  -s,--save          (default "logs512_lfw64")      subdirectory to save logs
+  -s,--save          (default "logs512_mpii64")      subdirectory to save logs
   --saveFreq         (default 1)          save every saveFreq epochs
   -n,--network       (default "")          reload pretrained network
   -p,--plot                                plot while training
@@ -60,7 +60,7 @@ else
   torch.setdefaulttensortype('torch.FloatTensor')
 end
 
-opt.geometry = {3, opt.scale, opt.scale}
+opt.geometry = {1, opt.scale, opt.scale}
 
 local input_sz = opt.geometry[1] * opt.geometry[2] * opt.geometry[3]
 
@@ -68,7 +68,8 @@ if opt.network == '' then
   ----------------------------------------------------------------------
   -- define D network to train
   model_D = nn.Sequential()
-  model_D:add(cudnn.SpatialConvolution(3, 32, 5, 5, 1, 1, 2, 2))
+  -- model_D:add(cudnn.SpatialConvolution(3, 32, 5, 5, 1, 1, 2, 2))
+  model_D:add(cudnn.SpatialConvolution(1, 32, 5, 5, 1, 1, 2, 2))
   model_D:add(cudnn.SpatialMaxPooling(2,2))
   model_D:add(cudnn.ReLU(true))
   model_D:add(nn.SpatialDropout(0.2))
@@ -103,17 +104,20 @@ if opt.network == '' then
   lg = cudnn.SpatialConvolution(256, 128, 5, 5, 1, 1, 2, 2)(lg)
   lg = nn.SpatialBatchNormalization(128)(lg)
   lg = cudnn.ReLU(true)(lg)
-  lg = cudnn.SpatialConvolution(128, 3, 3, 3, 1, 1, 1, 1)(lg)
+  -- lg = cudnn.SpatialConvolution(128, 3, 3, 3, 1, 1, 1, 1)(lg)
+  lg = cudnn.SpatialConvolution(128, 1, 3, 3, 1, 1, 1, 1)(lg)
   model_G = nn.gModule({x_input}, {lg})
 
 else
+   -- TODO restore epoch as well 
+
   print('<trainer> reloading previously trained network: ' .. opt.network)
   tmp = torch.load(opt.network)
   model_D = tmp.D
   model_G = tmp.G
 end
 
-debug.debug()
+-- debug.debug()
 
 -- loss function: negative log-likelihood
 criterion = nn.BCECriterion()
@@ -129,17 +133,17 @@ print('Generator network:')
 print(model_G)
 
 
-local lfwHd5 = hdf5.open('datasets/lfw.hdf5', 'r')
-local data = lfwHd5:read('lfw'):all()
-data:mul(2):add(-1)
-lfwHd5:close()
+local mpiiHd5 = hdf5.open('datasets/mpii_full_64.hdf5', 'r')
+trainData = mpiiHd5:read('train'):all():mul(2):add(-1)
+valData = mpiiHd5:read('test'):all():mul(2):add(-1)
+mpiiHd5:close()
 
-
-ntrain = 13000
-nval = 233
-trainData = data[{{1, ntrain}}]
-valData = data[{{ntrain, nval+ntrain}}]
-
+-- local data = mpiiHd5:read('mpii_full_64'):all()
+-- data:mul(2):add(-1)
+-- ntrain = 12900
+-- nval = 111
+-- trainData = data[{{1, ntrain}}]
+-- valData = data[{{ntrain, nval+ntrain}}]
 
 -- this matrix records the current confusion across classes
 classes = {'0','1'}
@@ -201,7 +205,7 @@ while true do
 
   local formatted = image.toDisplayTensor({input=to_plot, nrow=10})
   formatted:float()
-  image.save(opt.save .."/lfw_example_v1_"..(epoch or 0)..'.png', formatted)
+  image.save(opt.save .."/mpii_example_v1_"..(epoch or 0)..'.png', formatted)
   if opt.gpu then
     torch.setdefaulttensortype('torch.CudaTensor')
   else
@@ -217,6 +221,5 @@ while true do
   sgdState_D.learningRate = math.max(opt.learningRate*0.99^epoch, 0.000001)
   sgdState_G.momentum = math.min(sgdState_G.momentum + 0.0008, 0.7)
   sgdState_G.learningRate = math.max(opt.learningRate*0.99^epoch, 0.000001)
-
 
 end
